@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>カルテ変換ツール（Ver2.0）</title>
+    <style>
+        body { font-family: sans-serif; padding: 20px; background-color: #f4f6f9; color: #333; }
+        .container { background-color: white; padding: 25px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); max-width: 1000px; margin: 0 auto; }
+        h2 { border-bottom: 2px solid #0056b3; padding-bottom: 10px; margin-top: 0; }
+        .grid-layout { display: flex; gap: 20px; margin-top: 20px; }
+        .col { flex: 1; display: flex; flex-direction: column; }
+        label { font-weight: bold; margin-bottom: 5px; font-size: 0.9em; color: #555; }
+        input[type="date"], input[type="number"] { padding: 8px; margin-bottom: 15px; border: 1px solid #ccc; border-radius: 4px; width: 100%; box-sizing: border-box;}
+        .settings-box { background-color: #e9ecef; padding: 15px; border-radius: 6px; margin-bottom: 20px; }
+        .settings-row { display: flex; gap: 15px; }
+        .settings-item { flex: 1; }
+        textarea { width: 100%; flex-grow: 1; min-height: 200px; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; font-family: monospace; resize: vertical; margin-bottom: 15px;}
+        textarea[readonly] { background-color: #f8f9fa; }
+        button { padding: 12px 20px; background-color: #0056b3; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 1.1em; font-weight: bold; width: 100%; transition: background-color 0.2s; margin-bottom: 10px;}
+        button:hover { background-color: #004494; }
+        button.action-btn { background-color: #28a745; }
+        button.action-btn:hover { background-color: #218838; }
+        
+        /* 抽出リスト用のデザイン */
+        .extraction-table { width: 100%; border-collapse: collapse; margin-bottom: 15px; font-size: 0.9em; }
+        .extraction-table th, .extraction-table td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        .extraction-table th { background-color: #f2f2f2; }
+        .select-action { padding: 5px; width: 100%; }
+        .original-text { font-weight: bold; color: #d9534f; }
+        .converted-text { color: #0275d8; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>カルテ変換ツール（Ver2.0）</h2>
+
+    <div class="settings-box">
+        <div class="settings-row">
+            <div class="settings-item">
+                <label>① 基準年（X年）：</label>
+                <input type="number" id="baseYear" value="2026">
+            </div>
+            <div class="settings-item">
+                <label>② 受診日（〇日前）：</label>
+                <input type="date" id="referenceDate" value="2026-02-27">
+            </div>
+            <div class="settings-item">
+                <label>③ 入院・手術日（第〇病日）：</label>
+                <input type="date" id="eventDate" value="2026-02-10">
+            </div>
+        </div>
+    </div>
+
+    <div class="grid-layout">
+        <div class="col">
+            <label>元のカルテ文章（入力用）：</label>
+            <textarea id="inputText" placeholder="カルテの文章をここに貼り付けてください。">Day18よりA開始。本日day2のため経過観察。
+受診１か月前より下肢浮腫あり。7日前に増悪。
+術後32年目の検診。術後2か月目。</textarea>
+            
+            <button onclick="extractOnly()">① 表現を抽出する</button>
+        </div>
+
+        <div class="col" style="flex: 1.2;">
+            <label>🔍 抽出された表現と操作：</label>
+            <div id="extractionListArea" style="background: white; border: 1px solid #ccc; border-radius: 4px; padding: 10px; min-height: 200px; margin-bottom: 15px; overflow-y: auto;">
+                <p style="color: gray; text-align: center; margin-top: 80px;">抽出ボタンを押すと<br>ここにリストが表示されます</p>
+            </div>
+
+            <button class="action-btn" onclick="applyConversion()">② 選択内容で変換を実行する</button>
+        </div>
+
+        <div class="col">
+            <label>変換後の文章（出力結果）：</label>
+            <textarea id="outputText" readonly></textarea>
+        </div>
+    </div>
+</div>
+
+<script>
+    // 時間表現を計算して返す関数（裏側の計算用）
+    function calculateConvertedString(originalStr, baseYear, referenceDate, eventDate) {
+        let converted = originalStr;
+
+        // X月Y日
+        converted = converted.replace(/X([+-]\s*[0-9]+)?月Y\s*([+-]\s*[0-9]+)?日/g, function(match, mDiff, dDiff) {
+            let targetDate = new Date(referenceDate);
+            let addMonth = mDiff ? parseInt(mDiff.replace(/\s+/g, '')) : 0;
+            let addDay = dDiff ? parseInt(dDiff.replace(/\s+/g, '')) : 0;
+            targetDate.setMonth(targetDate.getMonth() + addMonth);
+            targetDate.setDate(targetDate.getDate() + addDay);
+            return targetDate.getFullYear() + "年" + (targetDate.getMonth() + 1) + "月" + targetDate.getDate() + "日";
+        });
+
+        // 〇日前、〇ヶ月前
+        converted = converted.replace(/([0-9]+)日(?:ほど)?前/g, function(match, days) {
+            let targetDate = new Date(referenceDate);
+            targetDate.setDate(targetDate.getDate() - parseInt(days));
+            return targetDate.getFullYear() + "年" + (targetDate.getMonth() + 1) + "月" + targetDate.getDate() + "日";
+        });
+        converted = converted.replace(/([0-9]+)ヶ月(?:ほど)?前/g, function(match, months) {
+            let targetDate = new Date(referenceDate);
+            targetDate.setMonth(targetDate.getMonth() - parseInt(months));
+            return targetDate.getFullYear() + "年" + (targetDate.getMonth() + 1) + "月";
+        });
+
+        // 術後〇年/ヶ月/日
+        converted = converted.replace(/術後\s*([0-9]+)\s*(年|ヶ月|日)(?:目)?/g, function(match, num, unit) {
+            let targetDate = new Date(eventDate);
+            let val = parseInt(num);
+            if (unit === "年") return (targetDate.getFullYear() + val) + "年";
+            if (unit === "ヶ月") {
+                targetDate.setMonth(targetDate.getMonth() + val);
+                return targetDate.getFullYear() + "年" + (targetDate.getMonth() + 1) + "月";
+            }
+            targetDate.setDate(targetDate.getDate() + val);
+            return targetDate.getFullYear() + "年" + (targetDate.getMonth() + 1) + "月" + targetDate.getDate() + "日";
+        });
+
+        // 第〇病日、day〇
+        converted = converted.replace(/第([0-9]+)病日/g, function(match, days) {
+            let targetDate = new Date(eventDate);
+            targetDate.setDate(targetDate.getDate() + (parseInt(days) - 1));
+            return targetDate.getFullYear() + "年" + (targetDate.getMonth() + 1) + "月" + targetDate.getDate() + "日";
+        });
+        converted = converted.replace(/[Dd]ay\s*([0-9]+)/g, function(match, days) {
+             let targetDate = new Date(eventDate);
+            targetDate.setDate(targetDate.getDate() + (parseInt(days) - 1));
+            return targetDate.getFullYear() + "年" + (targetDate.getMonth() + 1) + "月" + targetDate.getDate() + "日";
+        });
+
+        // 従来の変換
+        converted = converted.replace(/昭和([0-9]+)年/g, (m, y) => (1925 + parseInt(y)) + "年");
+        converted = converted.replace(/平成([0-9]+)年/g, (m, y) => (1988 + parseInt(y)) + "年");
+        converted = converted.replace(/令和([0-9]+)年/g, (m, y) => (2018 + parseInt(y)) + "年");
+        converted = converted.replace(/X-([0-9]+)年/g, (m, y) => (baseYear - parseInt(y)) + "年");
+        converted = converted.replace(/X\+([0-9]+)年/g, (m, y) => (baseYear + parseInt(y)) + "年");
+        converted = converted.replace(/X年/g, baseYear + "年");
+
+        return converted;
+    }
+
+    // ① リストの抽出だけを行う関数
+    function extractOnly() {
+        let rawText = document.getElementById('inputText').value;
+        const baseYear = parseInt(document.getElementById('baseYear').value) || 2026;
+        const refDateInput = document.getElementById('referenceDate').value;
+        const referenceDate = refDateInput ? new Date(refDateInput) : new Date();
+        const eventDateInput = document.getElementById('eventDate').value;
+        const eventDate = eventDateInput ? new Date(eventDateInput) : new Date();
+
+        // 下準備（全角を半角に等）
+        let text = rawText.replace(/[０-９]/g, function(s) {
+            return String.fromCharCode(s.charCodeAt(0) - 0xFEE0);
+        });
+        text = text.replace(/(か|カ|ヵ)月/g, "ヶ月");
+
+        // 検索ルール
+        const patternStr = '(昭和[0-9]+年|平成[0-9]+年|令和[0-9]+年|[RHS][0-9]+年|[0-9]{4}年(?:[0-9]+月(?:[0-9]+日)?)?|[0-9]{2,4}年度?|X[-+]?[0-9]*年(?:[A-Za-z0-9+-]+月(?:[A-Za-z0-9+-]+日)?)?|X([+-]\\s*[0-9]+)?月Y\\s*([+-]\\s*[0-9]+)?日|[0-9]+(?:年|ヶ月|週|日)(?:ほど)?前(?:より)?|第[0-9]+病日|[Dd]ay\\s*[0-9]+|術後[0-9]+(?:年|ヶ月|日)(?:目)?|[0-9]+歳(?:代|時)?|[0-9]+代(?:前半|後半)?)';
+        const regex = new RegExp(patternStr, 'g');
+        const matches = text.match(regex);
+
+        const listArea = document.getElementById('extractionListArea');
+        
+        if (!matches) {
+            listArea.innerHTML = '<p style="color: red; text-align: center;">時間表現が見つかりませんでした。</p>';
+            return;
+        }
+
+        // 重複を削除してユニークなリストにする
+        const uniqueMatches = [...new Set(matches)];
+
+        // リスト（テーブル）を作成
+        let html = '<table class="extraction-table">';
+        html += '<tr><th>元の表現 → 変換候補</th><th>操作を選んでください</th></tr>';
+        
+        uniqueMatches.forEach((match, index) => {
+            let converted = calculateConvertedString(match, baseYear, referenceDate, eventDate);
+            html += `
+                <tr>
+                    <td>
+                        <div class="original-text">${match}</div>
+                        <div class="converted-text">↳ ${converted}</div>
+                    </td>
+                    <td>
+                        <select class="select-action" id="action_${index}" data-original="${match}" data-converted="${converted}">
+                            <option value="replace">変換する</option>
+                            <option value="append">括弧書きで示す</option>
+                            <option value="ignore">変更しない</option>
+                        </select>
+                    </td>
+                </tr>
+            `;
+        });
+        html += '</table>';
+        listArea.innerHTML = html;
+        
+        // 入力されたテキスト自体は下準備済みのものに見えないところで上書きしておく
+        document.getElementById('inputText').dataset.processedText = text;
+    }
+
+    // ② 選択された内容に基づいて変換を実行する関数
+    function applyConversion() {
+        // 下準備済みのテキストを取得
+        let text = document.getElementById('inputText').dataset.processedText;
+        if (!text) {
+            alert("先に「抽出する」ボタンを押してください。");
+            return;
+        }
+
+        // リスト内のすべてのドロップダウンを取得
+        let selects = document.querySelectorAll('.select-action');
+        let actions = [];
+        
+        selects.forEach(sel => {
+            actions.push({
+                original: sel.getAttribute('data-original'),
+                converted: sel.getAttribute('data-converted'),
+                action: sel.value
+            });
+        });
+
+        // 文字数が長いものから順に置き換える（「X年」を先に変換して「X-1年」がおかしくなるのを防ぐため）
+        actions.sort((a, b) => b.original.length - a.original.length);
+
+        // ユーザーの選択に従って文章を書き換える
+        actions.forEach(item => {
+            if (item.action === 'ignore') {
+                return; // 何もしない
+            }
+
+            let replacementString = "";
+            if (item.action === 'replace') {
+                replacementString = item.converted;
+            } else if (item.action === 'append') {
+                replacementString = `${item.original}（${item.converted}）`;
+            }
+
+            // 文章の中にある対象の文字をすべて置き換える
+            text = text.split(item.original).join(replacementString);
+        });
+
+        // 結果を表示
+        document.getElementById('outputText').value = text;
+    }
+</script>
+
+</body>
+</html>

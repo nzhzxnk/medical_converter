@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>カルテ表記統一ツール（年齢へ変換）</title>
+    <style>
+        body { font-family: sans-serif; padding: 20px; background-color: #f9f9f9; }
+        .container { background-color: white; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); max-width: 600px; }
+        textarea { width: 100%; height: 100px; margin-bottom: 15px; padding: 10px; box-sizing: border-box; }
+        input { padding: 5px; margin-bottom: 15px; width: 100px; }
+        button { padding: 10px 20px; background-color: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; margin-bottom: 15px; }
+        button:hover { background-color: #218838; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>カルテ表記統一ツール（年齢へ変換）</h2>
+
+    <label><b>基準年</b>（カルテを書いている今の年など）：</label><br>
+    <input type="number" id="baseYear" value="2026"> 年<br>
+
+    <label><b>患者の生まれた年</b>（西暦）：</label><br>
+    <input type="number" id="birthYear" value="1980"> 年<br>
+
+    <label><b>元のカルテ文章</b>（ここにダミーデータが入っています）：</label>
+    <textarea id="inputText">1980年生まれ。平成30年に初診。X-2年に手術を受け、現在はX+1年。</textarea>
+
+    <button onclick="convertToAge()">年齢に統一する</button>
+
+    <label><b>変換後の文章</b>：</label>
+    <textarea id="outputText" readonly></textarea>
+</div>
+
+<script>
+    function convertToAge() {
+        // 入力された文字、基準年、生まれた年を読み取る
+        let text = document.getElementById('inputText').value;
+        let baseYear = parseInt(document.getElementById('baseYear').value);
+        let birthYear = parseInt(document.getElementById('birthYear').value);
+
+        // 昭和を一度西暦にしてから、生まれた年を引いて年齢にする
+        text = text.replace(/昭和([0-9]+)年/g, function(match, year) {
+            let westernYear = 1925 + parseInt(year);
+            return (westernYear - birthYear) + "歳時";
+        });
+        
+        // 平成を年齢にする
+        text = text.replace(/平成([0-9]+)年/g, function(match, year) {
+            let westernYear = 1988 + parseInt(year);
+            return (westernYear - birthYear) + "歳時";
+        });
+        
+        // 令和を年齢にする
+        text = text.replace(/令和([0-9]+)年/g, function(match, year) {
+            let westernYear = 2018 + parseInt(year);
+            return (westernYear - birthYear) + "歳時";
+        });
+        
+        // X-〇年を年齢にする
+        text = text.replace(/X-([0-9]+)年/g, function(match, year) {
+            let westernYear = baseYear - parseInt(year);
+            return (westernYear - birthYear) + "歳時";
+        });
+        
+        // X+〇年を年齢にする
+        text = text.replace(/X\+([0-9]+)年/g, function(match, year) {
+            let westernYear = baseYear + parseInt(year);
+            return (westernYear - birthYear) + "歳時";
+        });
+        
+        // 単純な「X年」を年齢にする
+        text = text.replace(/X年/g, function() {
+            return (baseYear - birthYear) + "歳時";
+        });
+
+        // 既に西暦になっているもの（例：2018年）を年齢にする
+        text = text.replace(/([0-9]{4})年/g, function(match, year) {
+            let westernYear = parseInt(year);
+            // 「1980年生まれ」などの表記が「0歳時生まれ」にならないようにする工夫
+            if (westernYear === birthYear) {
+                return match; 
+            }
+            return (westernYear - birthYear) + "歳時";
+        });
+
+        // 結果を下の箱に表示する
+        document.getElementById('outputText').value = text;
+    }
+</script>
+
+</body>
+</html>

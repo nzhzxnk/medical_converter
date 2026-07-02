@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>カルテ表記統一ツール（試作版）</title>
+    <style>
+        body { font-family: sans-serif; padding: 20px; background-color: #f9f9f9; }
+        .container { background-color: white; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); max-width: 600px; }
+        textarea { width: 100%; height: 100px; margin-bottom: 15px; padding: 10px; box-sizing: border-box; }
+        input { padding: 5px; margin-bottom: 15px; width: 100px; }
+        button { padding: 10px 20px; background-color: #007BFF; color: white; border: none; border-radius: 4px; cursor: pointer; margin-bottom: 15px; }
+        button:hover { background-color: #0056b3; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>カルテ表記統一ツール（西暦へ変換）</h2>
+
+    <label><b>基準年</b>（カルテを書いている今の年など）：</label><br>
+    <input type="number" id="baseYear" value="2026"> 年<br>
+
+    <label><b>元のカルテ文章</b>（ここにダミーデータが入っています）：</label>
+    <textarea id="inputText">昭和55年生まれ。平成30年に初診。X-2年に手術を受け、現在はX+1年。</textarea>
+
+    <button onclick="convertText()">西暦に統一する</button>
+
+    <label><b>変換後の文章</b>：</label>
+    <textarea id="outputText" readonly></textarea>
+</div>
+
+<script>
+    function convertText() {
+        // 入力された文字と基準年を読み取る
+        let text = document.getElementById('inputText').value;
+        let baseYear = parseInt(document.getElementById('baseYear').value);
+
+        // 文字のパターンを探して、西暦の足し算をして置き換える
+        // 昭和を西暦に
+        text = text.replace(/昭和([0-9]+)年/g, function(match, year) {
+            return (1925 + parseInt(year)) + "年";
+        });
+        
+        // 平成を西暦に
+        text = text.replace(/平成([0-9]+)年/g, function(match, year) {
+            return (1988 + parseInt(year)) + "年";
+        });
+        
+        // 令和を西暦に
+        text = text.replace(/令和([0-9]+)年/g, function(match, year) {
+            return (2018 + parseInt(year)) + "年";
+        });
+        
+        // X-〇年を西暦に
+        text = text.replace(/X-([0-9]+)年/g, function(match, year) {
+            return (baseYear - parseInt(year)) + "年";
+        });
+        
+        // X+〇年を西暦に
+        text = text.replace(/X\+([0-9]+)年/g, function(match, year) {
+            return (baseYear + parseInt(year)) + "年";
+        });
+        
+        // 単純な「X年」を西暦に
+        text = text.replace(/X年/g, baseYear + "年");
+
+        // 結果を下の箱に表示する
+        document.getElementById('outputText').value = text;
+    }
+</script>
+
+</body>
+</html>

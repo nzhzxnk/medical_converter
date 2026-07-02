@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>カルテ変換ツール</title>
+<style>
+  body { font-family: sans-serif; padding: 20px; background-color: #f0f2f5; }
+  .container { max-width: 600px; margin: 0 auto; background: #fff; padding: 25px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+  h2 { color: #0056b3; font-size: 1.2rem; margin-top: 0; }
+  .control-box { background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #dee2e6; }
+  .label-group { margin-bottom: 10px; }
+  textarea { width: 100%; height: 120px; padding: 12px; border: 1px solid #ccc; border-radius: 6px; margin-bottom: 10px; box-sizing: border-box; }
+  .btn-copy { background-color: #28a745; color: white; border: none; padding: 12px; border-radius: 6px; cursor: pointer; width: 100%; font-weight: bold; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h2>年号自動変換ツール</h2>
+  <div class="control-box">
+    <label>カルテが記載された西暦: <input type="number" id="baseYear" value="2026" min="1900" max="2100" style="width: 60px;"></label>
+    <br><br>
+    <label><input type="radio" name="mode" value="seireki" checked> 西暦変換</label>
+    <label><input type="radio" name="mode" value="gakkai"> 学会用(X年)</label>
+  </div>
+
+  <textarea id="inputText" placeholder="ここにカルテ原文を入力してください。"></textarea>
+  <textarea id="outputText" readonly></textarea>
+  <button class="btn-copy" onclick="copyText()">結果をコピー</button>
+</div>
+
+<script>
+  const input = document.getElementById('inputText');
+  const output = document.getElementById('outputText');
+  const baseYearInput = document.getElementById('baseYear');
+  
+  baseYearInput.value = new Date().getFullYear();
+
+  function convert() {
+    let text = input.value;
+    const base = parseInt(baseYearInput.value, 10);
+    const mode = document.querySelector('input[name="mode"]:checked').value;
+
+    // 「今年」「昨年」「一昨年」「来年」の変換
+    const terms = { "今年": 0, "昨年": -1, "一昨年": -2, "来年": 1 };
+    for (let term in terms) {
+      let year = base + terms[term];
+      let replacement = (mode === 'seireki') ? year + '年' : (terms[term] === 0 ? 'X年' : 'X' + (terms[term] > 0 ? '+' : '') + terms[term] + '年');
+      text = text.replace(new RegExp(term, 'g'), replacement);
+    }
+
+    // 和暦変換
+    text = text.replace(/(昭和|平成|令和)(元|[0-9]+)年/g, (m, era, y) => {
+      let val = y === '元' ? 1 : parseInt(y);
+      let year = (era === '昭和' ? 1925 : era === '平成' ? 1988 : 2018) + val;
+      return mode === 'seireki' ? `${year}年` : (year === base ? 'X年' : `X${year - base > 0 ? '+' : ''}${year - base}年`);
+    });
+
+    // 〇年前変換
+    text = text.replace(/([0-9]+)年前/g, (m, y) => {
+      return mode === 'seireki' ? `${base - parseInt(y)}年` : `X-${y}年`;
+    });
+
+    output.value = text;
+  }
+
+  [input, baseYearInput].forEach(el => el.addEventListener('input', convert));
+  document.querySelectorAll('input[name="mode"]').forEach(el => el.addEventListener('change', convert));
+
+  function copyText() {
+    output.select();
+    document.execCommand('copy');
+  }
+</script>
+</body>
+</html>
