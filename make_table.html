@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>NTTI Clinical Timeline Generator</title>
+    <style>
+        body { font-family: sans-serif; padding: 20px; background-color: #f8f9fa; }
+        .container { background-color: white; padding: 20px; border-radius: 8px; max-width: 900px; margin: auto; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        textarea { width: 100%; height: 150px; margin: 10px 0; }
+        button { padding: 12px 24px; background-color: #007bff; color: white; border: none; cursor: pointer; border-radius: 4px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { border: 1px solid #dee2e6; padding: 12px; text-align: left; }
+        th { background-color: #f1f3f5; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>NTTI Clinical Timeline Generator</h2>
+        <p>文章を入力してください（西暦変換済みの前提）</p>
+        <textarea id="inputText" placeholder="2026年2月10日に手術を実施。2026年3月1日に退院。"></textarea>
+        <button onclick="generateTimeline()">時系列テーブルを作成</button>
+
+        <div id="resultArea"></div>
+    </div>
+
+    <script>
+        function generateTimeline() {
+            const text = document.getElementById('inputText').value;
+            const lines = text.split(/[。！？\n]/); // 文単位に分割
+            const timelineData = [];
+
+            // 年月日の正規表現（例: 2026年2月10日）
+            const dateRegex = /(\d{4}年\d{1,2}月\d{1,2}日)/g;
+
+            lines.forEach(line => {
+                if (line.trim() === "") return;
+
+                let match;
+                let modifiedLine = line;
+                let foundDate = null;
+
+                // 文の中に西暦が含まれているかチェック
+                if ((match = dateRegex.exec(line)) !== null) {
+                    foundDate = match[1];
+                    // その一文の中で見つけた日付を"この時期"に置換
+                    modifiedLine = line.replace(dateRegex, "この時期");
+                    
+                    timelineData.push({
+                        date: foundDate,
+                        content: modifiedLine.trim() + "。"
+                    });
+                }
+            });
+
+            // 日付順にソート
+            timelineData.sort((a, b) => a.date.localeCompare(b.date));
+
+            // テーブル表示
+            if (timelineData.length === 0) {
+                document.getElementById('resultArea').innerHTML = "<p>該当する日付が見つかりませんでした。</p>";
+                return;
+            }
+
+            let html = "<table><tr><th>日付</th><th>この時期の経過</th></tr>";
+            timelineData.forEach(d => {
+                html += `<tr><td>${d.date}</td><td>${d.content}</td></tr>`;
+            });
+            document.getElementById('resultArea').innerHTML = html + "</table>";
+        }
+    </script>
+</body>
+</html>

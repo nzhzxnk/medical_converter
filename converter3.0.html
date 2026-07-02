@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="UTF-8">
-    <title>NTTI（Ver2.1）</title>
+    <title>NTTI（Ver3.0）</title>
     <style>
         body {
             font-family: sans-serif;
@@ -200,7 +200,8 @@ P:点滴継続</textarea>
                 <div id="extractionListArea"
                     style="background: white; border: 1px solid #ccc; border-radius: 4px; padding: 10px; min-height: 250px; margin-bottom: 15px; overflow-y: auto;">
                     <p style="color: gray; text-align: center; margin-top: 100px;">Extracted results will appear here
-                        <br> after clicking the extraction button.</p>
+                        <br> after clicking the extraction button.
+                    </p>
                 </div>
 
                 <button class="action-btn" onclick="applyConversion()">② Generate Output</button>
@@ -209,6 +210,12 @@ P:点滴継続</textarea>
             <div class="col">
                 <label>Output：</label>
                 <textarea id="outputText" readonly></textarea>
+            </div>
+            <div class="col">
+                <label>Call Gemini:</label>
+                <input type="password" id="apiKey" placeholder="Enter Gemini API Key">
+                <button onclick="generateWithGemini()" style="background-color: #6f42c1;">Create Table</button>
+                <div id="resultArea"></div>
             </div>
         </div>
     </div>
@@ -412,6 +419,45 @@ P:点滴継続</textarea>
 
             document.getElementById('outputText').value = text;
         }
+        // HTML内に追加：NTTIで変換した直後に、その内容をGeminiへ自動送信する関数
+        async function autoProcessWithGemini() {
+            // 1. 出力エリアの内容を自動取得
+            const convertedText = document.getElementById('outputText').value;
+
+            // 2. そのままGeminiへ送る
+            if (!convertedText) {
+                alert("まず変換（② Generate Output）を実行してください！");
+                return;
+            }
+
+            // 以下、先ほどの Gemini 連携関数の処理をそのまま流用
+            // これにより、②を押した後に「③ Gemini整理」ボタンを押すだけで表が完成します
+            runGeminiAnalysis(convertedText);
+        }
+        async function generateWithGemini() {
+            const text = document.getElementById('inputText').value;
+            const apiKey = document.getElementById('apiKey').value;
+            const resultArea = document.getElementById('resultArea');
+
+            resultArea.innerHTML = "Geminiがカルテを構造化しています...";
+
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: [{ parts: [{ text: `以下のテキストから日付と経過を抽出し、マークダウン形式のテーブル（列: 日付 | この時期の経過）を作成してください。生年月日、年齢、既往歴などの不要な属性情報は除外してください。\n\nテキスト: ${text}` }] }]
+                })
+            });
+
+            const data = await response.json();
+            const markdown = data.candidates[0].content.parts[0].text;
+
+            // 簡単なマークダウンテーブル表示（実用上はmarked.jsなどを推奨）
+            resultArea.innerHTML = `<pre style="white-space: pre-wrap;">${markdown}</pre>`;
+        }
+
     </script>
 
 </body>
